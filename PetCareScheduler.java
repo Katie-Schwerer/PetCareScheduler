@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class PetCareScheduler {
     private static Scanner scanner = new Scanner(System.in);
@@ -81,6 +82,33 @@ public class PetCareScheduler {
     }
 
     private static void scheduleAppointments() {
+        System.out.print("Enter Pet ID: ");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        String id = scanner.nextLine().trim();
 
+        Pet pet = pets.get(id);
+
+        if (pet == null) {
+            System.out.println("Error: Pet ID not found");
+            return;
+        }
+
+        LocalDateTime dateAppointment = null;
+
+        while(true) {
+            System.out.print("Enter a Date with this format (yyyy-MM-dd HH:mm): ");
+            String date = scanner.nextLine().trim();
+
+            try {
+                dateAppointment = LocalDateTime.parse(date, formatter);
+                if (dateAppointment.isAfter(LocalDateTime.now())) {
+                    break;
+                } else {
+                    System.out.println("The date/time must be in the future. Please try again.");
+                }
+            } catch (DateTimeParseException e) {
+                System.out.println("Invalid format. Please use yyyy-MM-dd HH:mm.");
+            }
+        }
     }
 }
