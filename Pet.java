@@ -83,4 +83,15 @@ public class Pet implements Serializable {
     public void addAppointment(Appointment newAppointment) {
         this.appointments.add(newAppointment);
     }
+
+    @Override
+    public String toString() {
+        return "ID: " + id +
+                "\nName: " + name +
+                "\nSpecies: " + species +
+                "\nAge: " + age +
+                "\nOwner: " + ownerName +
+                "\nContact: " + contactInfo +
+                "\nRegistered: " + registrationDate;
+    }
 }

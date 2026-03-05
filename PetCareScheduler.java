@@ -2,6 +2,8 @@ import java.io.*;
 import java.util.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 public class PetCareScheduler {
     private static Scanner scanner = new Scanner(System.in);
@@ -23,25 +25,24 @@ public class PetCareScheduler {
             String choice = scanner.nextLine();
 
             switch (choice) {
-                case '1':
+                case "1":
                     registerPet();
                     break;
-                case '2':
+                case "2":
                     scheduleAppointments();
                     break;
-                case '3':
-                    storeDate();
+                case "3":
+                    storeData();
                     break;
-                case '4':
+                case "4":
                     displayData();
                     break;
-                case '5':
+                case "5":
                     generateReports();
                     break;
-                case '6':
-                    savePetsToFile();
+                case "6":
+                    System.out.println("Thanks. Goodbye!");
                     running = false;
-                    System.out.println("Data saved. Goodbye!");
                     break;
                 default:
                     System.out.println("Invalid choice. Please select 1-6.");
@@ -68,6 +69,7 @@ public class PetCareScheduler {
         System.out.print("Enter Pet Age: ");
         int age = scanner.nextInt();
 
+        scanner.nextLine();
         System.out.print("Enter Pet Owner Name: ");
         String ownerName = scanner.nextLine().trim();
 
@@ -78,11 +80,11 @@ public class PetCareScheduler {
 
         pets.put(id, pet);
 
-        System.out.println("Pet registered successfully on " + pet.getJoinDate());
+        System.out.println("Pet registered successfully on " + pet.getRegistrationDate());
     }
 
     private static void scheduleAppointments() {
-        Set<String> types = { "Grooming", "Check-Up", "Cleaning", "Other" };
+        Set<String> types = Set.of("Grooming", "Check-Up", "Cleaning", "Other");
         System.out.print("Enter Pet ID: ");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         String id = scanner.nextLine().trim();
@@ -136,12 +138,11 @@ public class PetCareScheduler {
         System.out.println("Appointment Made!!");
     }
 
-    private static void storeDate() {
-        BufferedWriter writer = new BufferedWriter(new FileWriter("petstore.txt"));
-        try {
+    private static void storeData() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("petstore.txt"))) {
+
             writer.write("Pets:\n");
-            for (Map.Entry<String, Pet> entry : petsMap.entrySet()) {
-                // Write key and pet details, e.g. key and pet.toString()
+            for (Map.Entry<String, Pet> entry : pets.entrySet()) {
                 writer.write(entry.getKey() + ":" + entry.getValue().toString());
                 writer.newLine();
             }
@@ -152,7 +153,8 @@ public class PetCareScheduler {
                 writer.newLine();
             }
 
-            System.out.println("Succcessfully write Pets and Appointments to the file");
+            System.out.println("Successfully wrote Pets and Appointments to file");
+
         } catch (IOException e) {
             System.err.println("Error writing to file: " + e.getMessage());
         }
@@ -160,49 +162,99 @@ public class PetCareScheduler {
 
     private static void displayData() {
         System.out.println("All Registered Pets:");
+
         for (Pet pet : pets.values()) {
-            System.out.println(pet.toString());
-        }
+            System.out.println(pet);
+            System.out.println("Appointments for pet: " + pet.getName());
 
-        System.out.println("Appointments for pet: " + petName);
-        for (Appointment appointment : appointments) {
-            System.out.println(appointment);
-
-        }
-
-        System.out.println("Upcoming Appointments:");
-        LocalDate today = LocalDate.now();
-
-        for (Appointment appointment : appointments) {
-            LocalDate appointmentDate = LocalDate.parse(appointment.getDate()); // assuming date is in ISO format
-                                                                                // "yyyy-MM-dd"
-            if (!appointmentDate.isBefore(today)) {
+            for (Appointment appointment : pet.getAppointments()) {
                 System.out.println(appointment);
             }
         }
 
-        System.out.println("Past Appointment History by Pet:");
-
-        // Map petName -> List of past appointments
-        HashMap<String, List<Appointment>> pastAppointmentsMap = new HashMap<>();
+        System.out.println("\nUpcoming Appointments:");
+        LocalDateTime now = LocalDateTime.now();
 
         for (Appointment appointment : appointments) {
-            LocalDate appointmentDate = LocalDate.parse(appointment.getDate());
-            if (appointmentDate.isBefore(today)) {
-                pastAppointmentsMap
-                        .computeIfAbsent(appointment.getPetName(), k -> new ArrayList<>())
-                        .add(appointment);
+            if (!appointment.getDate().isBefore(now)) {
+                System.out.println(appointment);
             }
         }
 
-        for (String petName : pastAppointmentsMap.keySet()) {
-            System.out.println("Pet: " + petName);
-            for (Appointment pastAppointment : pastAppointmentsMap.get(petName)) {
-                System.out.println(pastAppointment);
+        System.out.println("\nPast Appointment History:");
+        for (Appointment appointment : appointments) {
+            if (appointment.getDate().isBefore(now)) {
+                System.out.println(appointment);
             }
-            System.out.println();
         }
     }
 
-    
+    private static void generateReports() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextWeek = now.plusDays(7);
+
+        System.out.println("\n=== Pets With Appointments in the Next 7 Days ===");
+
+        for (Pet pet : pets.values()) {
+            boolean hasUpcoming = false;
+
+            for (Appointment appointment : pet.getAppointments()) {
+                LocalDateTime apptDate = appointment.getDate();
+
+                if (!apptDate.isBefore(now) && !apptDate.isAfter(nextWeek)) {
+                    if (!hasUpcoming) {
+                        System.out.println("\nPet: " + pet.getName());
+                        hasUpcoming = true;
+                    }
+                    System.out.println(appointment);
+                }
+            }
+        }
+
+        System.out.println("\n=== Pets Overdue for a Vet Visit (No Check-Up in 6 Months) ===");
+
+        LocalDateTime sixMonthsAgo = now.minusMonths(6);
+
+        for (Pet pet : pets.values()) {
+
+            boolean hadRecentCheckup = false;
+
+            for (Appointment appointment : pet.getAppointments()) {
+
+                if (appointment.getAppointmentType().equals("Check-Up")) {
+                    if (appointment.getDate().isAfter(sixMonthsAgo)) {
+                        hadRecentCheckup = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hadRecentCheckup) {
+                System.out.println("Pet overdue: " + pet.getName() +
+                        " (Owner: " + pet.getOwnerName() + ")");
+            }
+        }
+
+        for (Pet pet : pets.values()) {
+
+            LocalDateTime lastCheckup = null;
+        
+            for (Appointment appointment : pet.getAppointments()) {
+                if (appointment.getAppointmentType().equals("Check-Up")) {
+        
+                    if (lastCheckup == null ||
+                        appointment.getDate().isAfter(lastCheckup)) {
+        
+                        lastCheckup = appointment.getDate();
+                    }
+                }
+            }
+        
+            if (lastCheckup == null ||
+                lastCheckup.isBefore(sixMonthsAgo)) {
+        
+                System.out.println("Pet overdue: " + pet.getName());
+            }
+        }
+    }
 }
